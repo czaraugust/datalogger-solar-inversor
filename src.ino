@@ -1,20 +1,13 @@
 /*
-
   emonTxV3.4 Discrete Sampling
-
   If AC-AC adapter is detected assume emonTx is also powered from adapter (jumper shorted) and take Real Power Readings and disable sleep mode to keep load on power supply constant
   If AC-AC addapter is not detected assume powering from battereis / USB 5V AC sample is not present so take Apparent Power Readings and enable sleep mode
-
   Transmitt values via RFM69CW radio
-
    -----------------------------------------
   Part of the openenergymonitor.org project
-
   Authors: Glyn Hudson & Trystan Lea
   Builds upon JCW JeeLabs RF12 library and Arduino
-
   Licence: GNU GPL V3
-
 */
 
 /*Recommended node ID allocation
@@ -28,8 +21,6 @@
 17-30	- Environmental sensing nodes (temperature humidity etc.)
 31	- Special allocation in JeeLib RFM12 driver - Node31 can communicate with nodes on any network group
 -------------------------------------------------------------------------------------------------------------
-
-
 Change Log:
 V3.1   25/05/18 Add prompt for serial config
 V3.0   16/01/18 Return zero reading when CT is disconnected and always sample from all CT's when powered by AC-AC (negate CT's required plugged in before startup)
@@ -53,10 +44,8 @@ V1.4 - Support for RFM69CW, DIP switches and battery voltage reading on emonTx V
 V1.3 - fix filter settle time to eliminate large inital reading
 V1.2 - fix bug which caused Vrms to be returned as zero if CT1 was not connected
 V1.1 - fix bug in startup Vrms calculation, startup Vrms startup calculation is now more accuratre
-
 emonhub.conf node decoder (nodeid is 8 when switch is off, 7 when switch is on)
 See: https://github.com/openenergymonitor/emonhub/blob/emon-pi/configuration.md
-
 [[8]]
     nodename = emonTx_3
     firmware =V2_3_emonTxV3_4_DiscreteSampling
@@ -66,7 +55,6 @@ See: https://github.com/openenergymonitor/emonhub/blob/emon-pi/configuration.md
        datacodes = h,h,h,h,h,h,h,h,h,h,h,L
        scales = 1,1,1,1,0.01,0.1,0.1, 0.1,0.1,0.1,0.1,1
        units =W,W,W,W,V,C,C,C,C,C,C,p
-
 */
 
 #define emonTxV3                                                                          // Tell emonLib this is the emonTx V3 - don't read Vcc assume Vcc = 3.3V as is always the case on emonTx V3 eliminates bandgap error and need for calibration http://harizanov.com/2013/09/thoughts-on-avr-adc-accuracy/
@@ -87,23 +75,26 @@ boolean DEBUG = 1;                       // Print serial debug
 //----------------------------emonTx V3 Settings---------------------------------------------------------------------------------------------------------------
 byte Vrms=                        230;            // Vrms for apparent power readings (when no AC-AC voltage sample is present)
 const byte Vrms_USA=              120;            // VRMS for USA apparent power
-const byte TIME_BETWEEN_READINGS = 5;            //Time between readings
+const byte TIME_BETWEEN_READINGS = 1;            //Time between readings
 
 //http://openenergymonitor.org/emon/buildingblocks/calibration
 
 const float Ical1=                90.9;                                 // (2000 turns / 22 Ohm burden) = 90.9
 const float Ical2=                90.9;                                 // (2000 turns / 22 Ohm burden) = 90.9
 const float Ical3=                90.9;                                 // (2000 turns / 22 Ohm burden) = 90.9
-const float Ical4=                16.67;                               // (2000 turns / 120 Ohm burden) = 16.67
+// const float Ical4=                16.67;                               // (2000 turns / 120 Ohm burden) = 16.67
+// const float Ical4=                27.78;
+const float Ical4=                30.55;                               // (2000 turns / 120 Ohm burden) = 16.67
 
 float Vcal=                       268.97;                             // (230V x 13) / (9V x 1.2) = 276.9 Calibration for UK AC-AC adapter 77DB-06-09
 //float Vcal=276.9;
 //const float Vcal=               260;                             //  Calibration for EU AC-AC adapter 77DE-06-09
 const float Vcal_USA=             130.0;                             //Calibration for US AC-AC adapter 77DA-10-09
-const float Vcal_BR=              140.89228794;
+const float Vcal_BR=              141.2264;
 boolean USA=false;
 
-const float phase_shift=          1.7;
+const float phase_shift=          0.01;
+// const float phase_shift=          0.10;
 const int no_of_samples=          1662;
 const int no_of_half_wavelengths= 30;
 const int timeout=                2000;                               //emonLib timeout
@@ -135,7 +126,7 @@ byte numSensors;
 //-------------------------------------------------------------------------------------------------------------------------------------------
 
 //-----------------------RFM12B / RFM69CW SETTINGS----------------------------------------------------------------------------------------------------
-byte RF_freq=RF12_433MHZ;                                           // Frequency of RF69CW module can be RF12_433MHZ, RF12_868MHZ or RF12_915MHZ. You should use the one matching the module you have.
+byte RF_freq=RF12_915MHZ;                                           // Frequency of RF69CW module can be RF12_433MHZ, RF12_868MHZ or RF12_915MHZ. You should use the one matching the module you have.
 byte nodeID = 8;                                                    // emonTx RFM12B node ID
 int networkGroup = 210;
 boolean RF_STATUS = 1;                                              // Enable RF
@@ -211,7 +202,7 @@ void setup()
     Serial.print(" Group: "); Serial.println(networkGroup);
     Serial.println(" ");
   }
-  Serial.println("POST.....wait 10s");
+  Serial.println("POST.....wait 5s");
   Serial.println("'+++' then [Enter] for RF config mode");
   Serial.println("(Arduino IDE Serial Monitor: make sure 'Both NL & CR' is selected)");
 
@@ -250,7 +241,7 @@ void setup()
   // Quick check to see if there is a voltage waveform present on the AC-AC Voltage input
   // Check consists of calculating the RMS value from 100 samples of the voltage input.
   start = millis();
-  while (millis() < (start + 10000)){
+  while (millis() < (start + 5000)){
     // If serial input of keyword string '+++' is entered during 10s POST then enter config mode
     if (Serial.available()){
       if ( Serial.readString() == "+++\r\n"){
@@ -398,40 +389,40 @@ void loop()
   // emontx.power1 = 1;
   // emontx.power2 = 1;
   // emontx.power3 = 1;
-  // emontx.power4 = 1;
+   emontx.power4 = 1;
 
-  if (CT1 || ACAC) {                                          // Awlays sample for CT's if powered by AC-AC
-    if (ACAC) {
-      ct1.calcVI(no_of_half_wavelengths,timeout);
-      emontx.power1=ct1.realPower;
-      emontx.Vrms=ct1.Vrms*100;
-    } else {                                                  //apparent power calculation if AC-AC not connected
-      emontx.power1 = ct1.calcIrms(no_of_samples)*Vrms;
-    }
-    if (analogRead(1) == 0) emontx.power1=0;                  // CT disconnected
-  }
-
-  if (CT2 || ACAC) {
-    if (ACAC) {
-      ct2.calcVI(no_of_half_wavelengths,timeout);
-      emontx.power2=ct2.realPower;
-      emontx.Vrms=ct2.Vrms*100;
-    } else {
-      emontx.power2 = ct2.calcIrms(no_of_samples)*Vrms;
-    }
-    if (analogRead(2) == 0) emontx.power2=0;    // CT disconnected
-  }
-
-  if (CT3 || ACAC) {
-    if (ACAC) {
-      ct3.calcVI(no_of_half_wavelengths,timeout);
-      emontx.power3=ct3.realPower;
-      emontx.Vrms=ct3.Vrms*100;
-    } else {
-      emontx.power3 = ct3.calcIrms(no_of_samples)*Vrms;
-    }
-    if (analogRead(3) == 0) emontx.power3=0;    // CT disconnected
-  }
+  // if (CT1 || ACAC) {                                          // Awlays sample for CT's if powered by AC-AC
+  //   if (ACAC) {
+  //     ct1.calcVI(no_of_half_wavelengths,timeout);
+  //     emontx.power1=ct1.realPower;
+  //     emontx.Vrms=ct1.Vrms*100;
+  //   } else {                                                  //apparent power calculation if AC-AC not connected
+  //     emontx.power1 = ct1.calcIrms(no_of_samples)*Vrms;
+  //   }
+  //   if (analogRead(1) == 0) emontx.power1=0;                  // CT disconnected
+  // }
+  //
+  // if (CT2 || ACAC) {
+  //   if (ACAC) {
+  //     ct2.calcVI(no_of_half_wavelengths,timeout);
+  //     emontx.power2=ct2.realPower;
+  //     emontx.Vrms=ct2.Vrms*100;
+  //   } else {
+  //     emontx.power2 = ct2.calcIrms(no_of_samples)*Vrms;
+  //   }
+  //   if (analogRead(2) == 0) emontx.power2=0;    // CT disconnected
+  // }
+  //
+  // if (CT3 || ACAC) {
+  //   if (ACAC) {
+  //     ct3.calcVI(no_of_half_wavelengths,timeout);
+  //     emontx.power3=ct3.realPower;
+  //     emontx.Vrms=ct3.Vrms*100;
+  //   } else {
+  //     emontx.power3 = ct3.calcIrms(no_of_samples)*Vrms;
+  //   }
+  //   if (analogRead(3) == 0) emontx.power3=0;    // CT disconnected
+  // }
 
   if (CT4 || ACAC) {
     if (ACAC) {
@@ -471,12 +462,17 @@ void loop()
   }
 
   if (DEBUG==1) {
-    Serial.print("ct1:"); Serial.print(emontx.power1);
-    Serial.print(",ct2:"); Serial.print(emontx.power2);
-    Serial.print(",ct3:"); Serial.print(emontx.power3);
-    Serial.print(",ct4:"); Serial.print(emontx.power4);
+    // Serial.print("ct1:"); Serial.print(emontx.power1);
+    // Serial.print(",ct2:"); Serial.print(emontx.power2);
+    // Serial.print(",ct3:"); Serial.print(emontx.power3);
+    // Serial.print(",ct4:"); Serial.print(emontx.power4);
+    //Serial.print("ct4_Phase:"); Serial.print(ct4);
+    Serial.print("ct4_Irms:"); Serial.print(ct4.Irms);
+    Serial.print(",ct4_realPower:"); Serial.print(ct4.realPower);
+    Serial.print(",ct4_aparentPower:"); Serial.print(ct4.apparentPower);
+    Serial.print(",ct4_PowerFactor:"); Serial.print(ct4.powerFactor);
     Serial.print(",vrms:"); Serial.print(emontx.Vrms);
-    Serial.print(",pulse:"); Serial.print(emontx.pulseCount);
+    // Serial.print(",pulse:"); Serial.print(emontx.pulseCount);
     if (DS18B20_STATUS==1){
       for(byte j=0;j<numSensors;j++){
         Serial.print(",t"); Serial.print(j); Serial.print(":");
@@ -495,16 +491,18 @@ void loop()
 
   unsigned long runtime = millis() - start;
   unsigned long sleeptime = (TIME_BETWEEN_READINGS*1000) - runtime - 100;
+  //Serial.println("Enviado!");
+  // if (ACAC) {                                                               // If powered by AC-AC adaper (mains power) then delay instead of sleep
+  //   delay(sleeptime);
+  // } else {                                                                  // if powered by battery then sleep rather than delay and disable LED to reduce energy consumption
+  //                                  // lose an additional 500ms here (measured timing)
+  //   Sleepy::loseSomeTime(sleeptime-500);                                    // sleep or delay in milliseconds
+  // }
 
-  if (ACAC) {                                                               // If powered by AC-AC adaper (mains power) then delay instead of sleep
-    delay(sleeptime);
-  } else {                                                                  // if powered by battery then sleep rather than delay and disable LED to reduce energy consumption
-                                   // lose an additional 500ms here (measured timing)
-    Sleepy::loseSomeTime(sleeptime-500);                                    // sleep or delay in milliseconds
-  }
 } // end loop
 //-------------------------------------------------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------------------------------------------------
+
 
 
 
@@ -519,7 +517,8 @@ void send_rf_data()
   rf12_sleep(RF12_WAKEUP);
   rf12_sendNow(0, &emontx, sizeof emontx);                           //send temperature data via RFM12B using new rf12_sendNow wrapper
   rf12_sendWait(2);
-  if (!ACAC) rf12_sleep(RF12_SLEEP);                             //if powered by battery then put the RF module to sleep between readings
+  if (!ACAC) rf12_sleep(RF12_SLEEP);
+                        //if powered by battery then put the RF module to sleep between readings
 }
 
 
@@ -558,4 +557,4 @@ int get_temperature(byte sensor)
 //-------------------------------------------------------------------------------------------------------------------------------------------
 
 
-#endif    // IMPORTANT LINE!
+#endif // IMPORTANT LINE!
