@@ -1,3 +1,14 @@
+# /etc/init.d/emontx.py
+### BEGIN INIT INFO
+# Provides:          emontx.py
+# Required-Start:    $remote_fs $syslog $time
+# Required-Stop:     $remote_fs $syslog $time
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: Start a script to process EmonTx data at boot time
+# Description:       Enable service provided by script.
+### END INIT INFO
+
 import serial;
 import time;
 import datetime
